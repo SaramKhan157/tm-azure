@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+dist/
+.pytest_cache/
+
+# Terraform
+.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.backup
+*.tfplan
+tfplan
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Secrets
+*.env
+.env*
+terraform.tfvars
+*.auto.tfvars
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor metadata
+.vscode/
+.idea/
