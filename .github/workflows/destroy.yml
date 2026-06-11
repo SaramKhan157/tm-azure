@@ -1,0 +1,71 @@
+name: Terraform Destroy
+
+# Manual only — destroying production infra by accident is not allowed.
+# Run from the GitHub UI: Actions → Terraform Destroy → Run workflow
+# Type the prefix (e.g. "tm") into the confirmation box to proceed.
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Type the project prefix (tm) to confirm destruction"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  destroy:
+    name: Destroy infrastructure
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Validate confirmation
+        run: |
+          if [ "${{ github.event.inputs.confirm }}" != "tm" ]; then
+            echo "::error::Confirmation text did not match. Aborting."
+            exit 1
+          fi
+          echo "Confirmation accepted. Proceeding with destroy."
+
+      - uses: actions/checkout@v4
+
+      - name: Log in to Azure
+        uses: azure/login@v2
+        with:
+          client-id:       ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id:       ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9"
+
+      - name: Terraform Init
+        run: terraform -chdir=terraform init
+        env:
+          ARM_CLIENT_ID:       ${{ secrets.AZURE_CLIENT_ID }}
+          ARM_TENANT_ID:       ${{ secrets.AZURE_TENANT_ID }}
+          ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          ARM_USE_OIDC:        "true"
+          ARM_ACCESS_KEY:      ${{ secrets.ARM_ACCESS_KEY }}
+
+      - name: Unbind custom domain (out-of-band, so destroy doesn't error)
+        continue-on-error: true
+        run: |
+          az containerapp hostname delete \
+            --name tm-app \
+            --resource-group tm-rg \
+            --hostname tm.saram-khan.site \
+            --yes || true
+
+      - name: Terraform Destroy
+        run: terraform -chdir=terraform destroy -auto-approve
+        env:
+          ARM_CLIENT_ID:       ${{ secrets.AZURE_CLIENT_ID }}
+          ARM_TENANT_ID:       ${{ secrets.AZURE_TENANT_ID }}
+          ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          ARM_USE_OIDC:        "true"
+          ARM_ACCESS_KEY:      ${{ secrets.ARM_ACCESS_KEY }}
